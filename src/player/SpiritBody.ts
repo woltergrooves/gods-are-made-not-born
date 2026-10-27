@@ -36,6 +36,13 @@ export class SpiritBody {
   stage = 0;
   private stageVis = 0.35;
   private pulse = 0;
+  private strikeT = 1;
+  private strikeDur = 0.3;
+  private strikeSide = 1;
+  private strikeHeavy = false;
+  private hurtT = 0;
+  /** 0 = solid, 1 = fully dissipated (defeat). */
+  dissolve = 0;
   light: THREE.PointLight;
 
   constructor(scene: THREE.Scene) {
@@ -204,6 +211,15 @@ export class SpiritBody {
 
   triggerPulse(): void { this.pulse = 1; }
 
+  /** Body language for a strike: twist into the swing, lean in, flare the core. */
+  strike(heavy: boolean, step: number, dur: number): void {
+    this.strikeT = 0; this.strikeDur = dur; this.strikeHeavy = heavy;
+    this.strikeSide = heavy ? 0 : step === 1 ? -1 : 1;
+    this.pulse = Math.max(this.pulse, heavy ? 0.9 : 0.35);
+  }
+
+  hurt(): void { this.hurtT = 0.5; }
+
   update(dt: number, time: number, speed: number, lean: number, grounded: boolean): void {
     this.coreU['uTime']!.value = time;
     this.shroudU['uTime']!.value = time;
@@ -214,6 +230,11 @@ export class SpiritBody {
     this.shroudU['uVis']!.value = this.stageVis;
     this.pulse = Math.max(0, this.pulse - dt * 1.6);
     this.coreU['uPulse']!.value = this.pulse;
+    this.hurtT = Math.max(0, this.hurtT - dt);
+    const flicker = this.hurtT > 0 ? (Math.sin(time * 70) > 0 ? 0.35 : 1) : 1;
+    const solid = (1 - this.dissolve) * flicker;
+    this.coreU['uVis']!.value = this.stageVis * solid;
+    this.shroudU['uVis']!.value = this.stageVis * solid;
     this.eyeMat.opacity += ((this.stage > 0 ? 0.95 : 0.25) - this.eyeMat.opacity) * Math.min(1, dt * 2);
     (this.trail.material as THREE.PointsMaterial).color.copy(this.tint);
     this.light.color.copy(this.tint);
@@ -223,8 +244,19 @@ export class SpiritBody {
     this.bodyPivot.position.y = bob;
     this.bodyPivot.rotation.x = -Math.min(0.35, speed * 0.035);
     this.bodyPivot.rotation.z = lean * 0.25;
-    const s = 0.9 + this.stage * 0.08;
+    this.bodyPivot.rotation.y = 0;
+    if (this.strikeT < this.strikeDur) {
+      this.strikeT += dt;
+      const k = Math.min(1, this.strikeT / this.strikeDur);
+      // anticipation → snap → settle
+      const swing = k < 0.3 ? -k / 0.3 : k < 0.55 ? -1 + (k - 0.3) / 0.25 * 2 : 1 - (k - 0.55) / 0.45;
+      if (this.strikeHeavy) { this.bodyPivot.rotation.x = swing * 0.55; this.bodyPivot.position.y = bob + Math.max(0, -swing) * 0.25; }
+      else { this.bodyPivot.rotation.y = this.strikeSide * swing * 0.9; this.bodyPivot.rotation.x = -Math.abs(swing) * 0.3; }
+    }
+    if (this.hurtT > 0.3) this.bodyPivot.rotation.x = 0.35;
+    const s = (0.9 + this.stage * 0.08) * (1 + this.dissolve * 0.6);
     this.bodyPivot.scale.setScalar(s);
+    this.light.intensity *= 1 - this.dissolve;
 
     for (const [name, p] of Object.entries(this.parts)) {
       p.current += (p.target - p.current) * Math.min(1, dt * 0.9);

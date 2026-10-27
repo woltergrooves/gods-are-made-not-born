@@ -19,6 +19,8 @@ export class UI {
   private dialogueDone: (() => void) | null = null;
   private barkEls = new Map<string, HTMLElement>();
   private screenStack: string[] = [];
+  private ebarEls = new Map<string, HTMLElement>();
+  private hurtTimer = 0;
   onMenu: ((act: string, from: string) => void) | null = null;
   onSlot: ((slot: string) => void) | null = null;
   onSettings: ((s: Partial<GameState['settings']> & { volume?: number; fps?: boolean }) => void) | null = null;
@@ -170,6 +172,7 @@ export class UI {
   }
 
   update(dt: number): void {
+    this.tickHurt(dt);
     this.toastTimer -= dt;
     const box = $('toasts');
     if (this.toastTimer <= 0 && this.toastQueue.length) {
@@ -202,6 +205,67 @@ export class UI {
       el.style.top = `${(-v.y * 0.5 + 0.5) * h}px`;
     }
     for (const [id, el] of this.barkEls) if (!seen.has(id)) { el.remove(); this.barkEls.delete(id); }
+  }
+
+  // ── combat HUD ──
+  essence(hp: number, max: number, show: boolean): void {
+    const el = $('essence');
+    el.classList.toggle('show', show || hp < max - 0.5);
+    el.classList.toggle('low', hp < max * 0.3);
+    const w = `${Math.max(0, hp / max) * 100}%`;
+    $('essence-fill').style.width = w;
+    $('essence-ghost').style.width = w;
+  }
+
+  hurtFlash(strength = 1): void {
+    this.hurtTimer = 0.35 + strength * 0.25;
+    $('hurt').style.transition = 'none';
+    $('hurt').style.opacity = String(Math.min(1, 0.55 + strength * 0.45));
+  }
+
+  private tickHurt(dt: number): void {
+    if (this.hurtTimer <= 0) return;
+    this.hurtTimer -= dt;
+    if (this.hurtTimer <= 0) { $('hurt').style.transition = 'opacity .6s'; $('hurt').style.opacity = '0'; }
+  }
+
+  /** Floating bars over enemies that are fighting, hurt or locked. */
+  enemyBars(items: { id: string; pos: THREE.Vector3; hp: number; max: number; name: string | null; stagger: boolean }[], camera: THREE.Camera): void {
+    const root = $('enemy-bars');
+    const seen = new Set<string>();
+    const w = window.innerWidth, h = window.innerHeight;
+    for (const it of items) {
+      const v = it.pos.clone().project(camera);
+      if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) continue;
+      seen.add(it.id);
+      let el = this.ebarEls.get(it.id);
+      if (!el) { el = document.createElement('div'); el.className = 'ebar'; el.innerHTML = '<i></i><small></small>'; root.appendChild(el); this.ebarEls.set(it.id, el); }
+      (el.firstElementChild as HTMLElement).style.width = `${Math.max(0, it.hp / it.max) * 100}%`;
+      el.classList.toggle('stagger', it.stagger);
+      const label = el.querySelector('small')!;
+      if (label.textContent !== (it.name ?? '')) label.textContent = it.name ?? '';
+      el.style.left = `${(v.x * 0.5 + 0.5) * w}px`;
+      el.style.top = `${(-v.y * 0.5 + 0.5) * h}px`;
+    }
+    for (const [id, el] of this.ebarEls) if (!seen.has(id)) { el.remove(); this.ebarEls.delete(id); }
+  }
+
+  reticle(pos: THREE.Vector3 | null, camera: THREE.Camera): void {
+    const el = $('reticle');
+    if (!pos) { el.classList.add('hidden'); $('b-lock').classList.remove('on'); return; }
+    const v = pos.clone().project(camera);
+    const vis = v.z <= 1 && Math.abs(v.x) <= 1.05 && Math.abs(v.y) <= 1.05;
+    el.classList.toggle('hidden', !vis);
+    $('b-lock').classList.add('on');
+    el.style.left = `${(v.x * 0.5 + 0.5) * window.innerWidth}px`;
+    el.style.top = `${(-v.y * 0.5 + 0.5) * window.innerHeight}px`;
+  }
+
+  charge(level: number): void { $('b-charge').style.transform = `scale(${level > 0 ? 0.25 + level * 0.75 : 0})`; }
+
+  combatHint(text: string | null): void {
+    $('combat-hint').classList.toggle('hidden', !text);
+    if (text) $('combat-hint').textContent = text;
   }
 
   fps(v: number | null, extra = ''): void {

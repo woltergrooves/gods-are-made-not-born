@@ -48,8 +48,13 @@
     <div class="hud-tl">
       <button class="icon-btn" id="btn-pause" aria-label="Pause">❚❚</button>
       <button class="icon-btn" id="btn-journal" aria-label="Journal">卷</button>
-      <div class="form-title"><span id="form-title">Nameless</span><small id="form-domains"></small></div>
+      <div class="form-title"><span id="form-title">Nameless</span><small id="form-domains"></small>
+        <div id="essence" aria-label="Essence"><div id="essence-ghost"></div><div id="essence-fill"></div></div></div>
     </div>
+    <div id="hurt"></div>
+    <div id="enemy-bars"></div>
+    <div id="reticle" class="hidden"></div>
+    <div id="combat-hint" class="hidden"></div>
     <div id="toasts"></div>
     <div id="objective" class="hidden"></div>
     <div id="hint" class="hidden"></div>
@@ -60,7 +65,9 @@
       <button class="act" id="b-ability" data-btn="ability"><span>Power</span></button>
       <button class="act" id="b-dodge" data-btn="dodge"><span>Dodge</span></button>
       <button class="act" id="b-jump" data-btn="jump"><span>Jump</span></button>
-      <button class="act big" id="b-interact" data-btn="interact"><span id="b-interact-label">Act</span></button>
+      <button class="act" id="b-interact" data-btn="interact"><span id="b-interact-label">Act</span></button>
+      <button class="act big" id="b-attack" data-btn="attack"><span>Strike</span><i id="b-charge"></i></button>
+      <button class="act small" id="b-lock" data-btn="lock" aria-label="Lock on"><span>◎</span></button>
     </div>
     <div id="barks"></div>
     <div id="fps" class="hidden"></div>

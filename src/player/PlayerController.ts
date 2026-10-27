@@ -27,6 +27,15 @@ export class PlayerController {
   private dodgeDir = new THREE.Vector3();
   private exhausted = false;
   readonly radius = 0.45;
+  /** Combat hooks: scale steering (0 while swinging), face a point, lunges & knockback. */
+  moveScale = 1;
+  faceTarget: { x: number; z: number } | null = null;
+  yawLock: number | null = null;
+  private pushDir = new THREE.Vector3();
+  private pushSpeed = 0;
+  private pushTime = 0;
+  private pushDur = 1;
+  private pushTurn = true;
   onDodge: (() => void) | null = null;
   onJump: (() => void) | null = null;
   onLand: ((impact: number) => void) | null = null;
@@ -41,12 +50,26 @@ export class PlayerController {
 
   get speed(): number { return Math.hypot(this.vel.x, this.vel.z); }
 
+  /** Short forced slide: an attack lunge (turn = true) or a knockback (turn = false). */
+  push(dx: number, dz: number, speed: number, time: number, turn = true): void {
+    const l = Math.hypot(dx, dz) || 1;
+    this.pushDir.set(dx / l, 0, dz / l);
+    this.pushSpeed = speed; this.pushTime = time; this.pushDur = time; this.pushTurn = turn;
+  }
+
+  get exhaustedNow(): boolean { return this.exhausted; }
+
+  spend(stamina: number): void {
+    this.stamina = Math.max(0, this.stamina - stamina);
+    if (this.stamina <= 0) this.exhausted = true;
+  }
+
   update(dt: number, input: InputState, camYaw: number): void {
     dt = Math.min(dt, 1 / 20);
     const fwd = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
     const wish = fwd.multiplyScalar(input.moveY).add(right.multiplyScalar(input.moveX));
-    const mag = Math.min(1, wish.length());
+    const mag = Math.min(1, wish.length()) * this.moveScale;
     if (mag > 0.01) wish.normalize();
 
     // stamina
@@ -73,16 +96,26 @@ export class PlayerController {
     const hv = new THREE.Vector3(this.vel.x, 0, this.vel.z);
     if (this.dodgeTime > 0) {
       this.dodgeTime -= dt;
+      this.pushTime = 0;
       const k = Math.max(0, this.dodgeTime / 0.3);
       hv.copy(this.dodgeDir).multiplyScalar(7 + 13 * k);
+    } else if (this.pushTime > 0) {
+      this.pushTime -= dt;
+      const k = Math.max(0, this.pushTime / this.pushDur);
+      hv.copy(this.pushDir).multiplyScalar(this.pushSpeed * (0.25 + 0.75 * k));
     } else {
       const target = wish.clone().multiplyScalar(top * (mag > 0.01 ? 1 : 0));
       const accel = this.grounded ? (mag > 0.01 ? 16 : 12) : 5;
       hv.lerp(target, 1 - Math.exp(-accel * dt));
     }
 
-    // turn toward movement
-    if (hv.lengthSq() > 0.2) {
+    // turn: forced facing (attacks), a lock-on target, or toward movement
+    if (this.yawLock !== null || (this.faceTarget && this.dodgeTime <= 0 && !sprinting)) {
+      const targetYaw = this.yawLock ?? Math.atan2(this.faceTarget!.x - this.pos.x, this.faceTarget!.z - this.pos.z);
+      let d = targetYaw - this.yaw;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      this.yaw += d * Math.min(1, dt * 18);
+    } else if (hv.lengthSq() > 0.2 && (this.pushTime <= 0 || this.pushTurn)) {
       const targetYaw = Math.atan2(hv.x, hv.z);
       let d = targetYaw - this.yaw;
       d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -91,7 +124,7 @@ export class PlayerController {
 
     // jump (buffered, with coyote time)
     this.jumpBuffer -= dt; this.coyote -= dt;
-    if (input.jump) this.jumpBuffer = 0.15;
+    if (input.jump && this.moveScale > 0.5) this.jumpBuffer = 0.15;
     if (this.jumpBuffer > 0 && (this.grounded || this.coyote > 0)) {
       this.vel.y = 8.6; this.grounded = false; this.coyote = 0; this.jumpBuffer = 0;
       this.onJump?.();
@@ -144,6 +177,9 @@ export class CameraRig {
   private idle = 0;
   cinematic: { from: THREE.Vector3; to: THREE.Vector3; lookFrom: THREE.Vector3; lookTo: THREE.Vector3; t: number; dur: number } | null = null;
   shake = 0;
+  /** World point the camera keeps framed together with the player (lock-on). */
+  lockTarget: THREE.Vector3 | null = null;
+  private lockBlend = 0;
 
   constructor(public camera: THREE.PerspectiveCamera, private collision: CollisionWorld) {}
 
@@ -160,8 +196,17 @@ export class CameraRig {
       return;
     }
     const looked = Math.abs(input.lookX) + Math.abs(input.lookY) > 0.0005;
-    this.yaw -= input.lookX;
-    this.elevation = Math.max(-0.3, Math.min(1.15, this.elevation + input.lookY));
+    this.lockBlend += ((this.lockTarget ? 1 : 0) - this.lockBlend) * Math.min(1, dt * 6);
+    if (this.lockTarget) {
+      // swing behind the player so both the spirit and its target stay in frame
+      const want = Math.atan2(player.pos.x - this.lockTarget.x, player.pos.z - this.lockTarget.z);
+      let d = want - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
+      this.yaw += d * Math.min(1, dt * 7) - input.lookX * 0.25;
+      this.elevation += (0.3 - this.elevation) * Math.min(1, dt * 3);
+    } else {
+      this.yaw -= input.lookX;
+    }
+    this.elevation = Math.max(-0.3, Math.min(1.15, this.elevation + input.lookY * (this.lockTarget ? 0.3 : 1)));
     this.idle = looked ? 0 : this.idle + dt;
     // gentle auto-follow behind the spirit while moving and not steering the camera
     if (playerMoving && this.idle > 1.6) {
@@ -170,16 +215,24 @@ export class CameraRig {
       this.yaw += d * Math.min(1, dt * 0.8) * Math.min(1, (this.idle - 1.6) * 0.5);
     }
     const goal = new THREE.Vector3(player.pos.x, player.pos.y + 1.55, player.pos.z);
+    if (this.lockTarget && this.lockBlend > 0.01) {
+      // bias the framing toward the target, clamped so the spirit never leaves the shot
+      const off = this.lockTarget.clone().sub(goal); off.y = Math.max(-1, Math.min(1, off.y));
+      const l = off.length(); if (l > 3.2) off.multiplyScalar(3.2 / l);
+      goal.addScaledVector(off, 0.35 * this.lockBlend);
+    }
     this.target.lerp(goal, 1 - Math.exp(-14 * dt));
     const ce = Math.cos(this.elevation), se = Math.sin(this.elevation);
     const dir = new THREE.Vector3(Math.sin(this.yaw) * ce, se, Math.cos(this.yaw) * ce);
+    // pull back a little while locked on so the spirit doesn't hide its target
+    const wantDist = this.distance + this.lockBlend * 1.6;
     // collision: terrain samples + colliders
-    let allowed = this.distance;
+    let allowed = wantDist;
     const steps = 14;
     for (let i = 1; i <= steps; i++) {
-      const d = (i / steps) * this.distance;
+      const d = (i / steps) * wantDist;
       const p = this.target.clone().addScaledVector(dir, d);
-      if (heightAt(p.x, p.z) + 0.45 > p.y) { allowed = Math.max(1.2, d - this.distance / steps); break; }
+      if (heightAt(p.x, p.z) + 0.45 > p.y) { allowed = Math.max(1.2, d - wantDist / steps); break; }
     }
     const far = this.target.clone().addScaledVector(dir, allowed);
     const t = this.collision.rayBlocks(this.target.x, this.target.y, this.target.z, far.x, far.y, far.z);

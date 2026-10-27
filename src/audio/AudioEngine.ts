@@ -1,6 +1,9 @@
 // Fully procedural soundscape (no external audio files): rain, river, wind, thunder,
 // temple bells, Karplus–Strong koto phrases and spirit effects. Everything is original synthesis.
 
+export type SfxKind = 'jump' | 'dodge' | 'chime' | 'ward' | 'howl' | 'rend' | 'land' | 'crash' | 'lift' | 'form'
+  | 'swing' | 'swing_heavy' | 'hit' | 'hit_heavy' | 'stagger' | 'hurt' | 'telegraph' | 'enemy_die' | 'bell_crack' | 'alert' | 'charged' | 'defeat';
+
 export class AudioEngine {
   ctx: AudioContext | null = null;
   private master!: GainNode;
@@ -174,7 +177,7 @@ export class AudioEngine {
     s.start(t, Math.random() * 2); s.stop(t + 5);
   }
 
-  sfx(kind: 'jump' | 'dodge' | 'chime' | 'ward' | 'howl' | 'rend' | 'land' | 'crash' | 'lift' | 'form'): void {
+  sfx(kind: SfxKind): void {
     const ctx = this.ctx; if (!ctx) return;
     const t = ctx.currentTime;
     const env = (g: GainNode, a: number, peak: number, d: number) => { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
@@ -210,6 +213,19 @@ export class AudioEngine {
       }
       case 'rend': noiseBurst(4000, 200, 0.6, 0.6, 'lowpass'); tone(80, 'square', 0.25, 0.5, 40); break;
       case 'crash': noiseBurst(1800, 60, 0.9, 1.6, 'lowpass'); tone(60, 'sine', 0.5, 1.2, 30); break;
+      // ── combat ──
+      case 'swing': noiseBurst(1800 + Math.random() * 600, 5200, 0.32, 0.16); tone(520 + Math.random() * 80, 'sine', 0.03, 0.12, 900); break;
+      case 'swing_heavy': noiseBurst(600, 3800, 0.5, 0.32); tone(140, 'triangle', 0.12, 0.35, 260); break;
+      case 'hit': noiseBurst(2600, 400, 0.55, 0.12, 'bandpass'); tone(170, 'square', 0.12, 0.12, 70); tone(1240 + Math.random() * 200, 'sine', 0.05, 0.25); break;
+      case 'hit_heavy': noiseBurst(1400, 90, 0.85, 0.3, 'lowpass'); tone(95, 'square', 0.25, 0.3, 38); tone(880, 'triangle', 0.06, 0.6, 660); break;
+      case 'stagger': [660, 990, 1320].forEach((f) => tone(f, 'sine', 0.05, 0.7)); break;
+      case 'hurt': tone(220, 'sawtooth', 0.14, 0.35, 90); noiseBurst(900, 120, 0.45, 0.3, 'lowpass'); break;
+      case 'telegraph': tone(1500, 'sine', 0.05, 0.22, 2200); tone(1530, 'sine', 0.04, 0.22, 2260); break;
+      case 'enemy_die': noiseBurst(500, 3200, 0.35, 0.9); [392, 311, 233].forEach((f) => tone(f, 'triangle', 0.06, 1.4, f * 0.6)); break;
+      case 'bell_crack': noiseBurst(3000, 900, 0.5, 0.25); [517, 1093, 1611].forEach((f) => tone(f, 'sine', 0.07, 1.6, f * 0.97)); break;
+      case 'alert': tone(300, 'sawtooth', 0.05, 0.4, 180); noiseBurst(700, 300, 0.2, 0.4); break;
+      case 'charged': tone(1046, 'sine', 0.08, 0.5); tone(1568, 'sine', 0.05, 0.6); break;
+      case 'defeat': [196, 165, 131, 98].forEach((f, i) => tone(f, 'triangle', 0.08 - i * 0.012, 2.6, f * 0.7)); noiseBurst(1200, 80, 0.4, 2.0, 'lowpass'); break;
     }
   }
 

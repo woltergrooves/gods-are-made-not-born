@@ -17,6 +17,7 @@ import { recordEvent, log, type WitnessInput } from '../sim/BeliefEngine.js';
 import { dialogueFor, barkFor } from '../sim/dialogue.js';
 import type { GameState } from '../sim/types.js';
 import { PLACES, riverX, heightAt, distToRiver, forestDensity } from '../world/layout.js';
+import { CombatDirector } from '../combat/CombatDirector.js';
 
 type Mode = 'loading' | 'title' | 'intro' | 'play' | 'paused';
 const FLOOD_DURATION = 170; // seconds of player time before the village acts without you
@@ -31,6 +32,7 @@ export class Game {
   rig!: CameraRig;
   body!: SpiritBody;
   npcs!: NpcManager;
+  combat!: CombatDirector;
   input: Input;
   ui: UI;
   audio = new AudioEngine();
@@ -73,6 +75,13 @@ export class Game {
     this.body = new SpiritBody(scene);
     this.npcs = new NpcManager(scene, this.valley.collision, this.valley.village.bridgeDeck, this.quality !== 'low');
     this.npcs.mioRockTop = this.valley.mioRockTop;
+    const surf = this.valley.surfaces();
+    this.combat = new CombatDirector({
+      scene, player: this.player, rig: this.rig, body: this.body, audio: this.audio, ui: this.ui, collision: this.valley.collision,
+      ground: (x, z) => surf.ground(x, z), getState: () => this.state,
+      witnesses: (at, vis, audible) => this.witnesses(at, vis, audible),
+      touch: () => this.input.touchMode || matchMedia('(pointer: coarse)').matches,
+    });
     await progress(0.95, 'Compiling shaders');
     this.renderer.setup(scene, this.camera);
     this.onResize();
@@ -126,6 +135,7 @@ export class Game {
     this.ui.show('hud', false);
     this.ui.show('loading', false);
     this.ui.pushScreen('title');
+    this.combat.clearAll();
     const latest = await this.saves.latest();
     this.ui.show('btn-continue', !!latest);
     // the title screen sits over a slow flight above the village
@@ -228,6 +238,7 @@ export class Game {
 
   private applyLoadedWorld(): void {
     const st = this.state;
+    this.combat.clearAll();
     this.player.teleport(st.player.x, st.player.z, st.player.yaw);
     this.player.pos.y = Math.max(this.player.pos.y, st.player.y);
     this.rig.snapBehind(this.player);
@@ -294,17 +305,23 @@ export class Game {
     if (this.sequence) this.advanceSequence(dt);
 
     if (playing) {
-      this.player.update(dt, input, this.rig.yaw);
+      const ts = this.combat.timeScale();
+      const cin = this.combat.preUpdate(dt, input, st);
+      this.player.update(dt * ts, cin, this.rig.yaw);
+      this.combat.update(dt * ts, this.time, st, true);
       stepWorld(st, dt);
       this.afterSim();
       this.updateFlood(dt);
-      this.updateInteraction(dt, input);
-      this.updateAbility(input, dt);
+      if (!this.combat.blocking) {
+        this.updateInteraction(dt, input);
+        this.updateAbility(input, dt);
+      }
       this.autosaveTimer += dt;
       if (this.autosaveTimer > 120 && st.flags['flood_phase'] === 'resolved') { this.autosaveTimer = 0; void this.autosave('Wandering'); }
       if (this.pendingAutosave > 0) { this.pendingAutosave -= dt; if (this.pendingAutosave <= 0) void this.autosave(String(st.flags['flood_outcome'] ?? 'Checkpoint')); }
-    } else if (this.ui.talking && input.interact) {
-      this.ui.advanceDialogue();
+    } else {
+      this.combat.update(0, this.time, st, false);
+      if (this.ui.talking && input.interact) this.ui.advanceDialogue();
     }
     this.consTimer -= dt;
     if (this.consTimer <= 0) { this.consTimer = 1.5; this.refreshConsequences(); }
@@ -318,6 +335,7 @@ export class Game {
     this.body.root.rotation.y = this.player.yaw;
     this.body.root.visible = this.mode !== 'title';
     this.body.update(dt, this.time, this.player.speed, 0, this.player.grounded);
+    this.combat.hud(this.camera, this.mode === 'play' && !this.ui.talking);
     const visible = this.mode === 'play';
     this.npcs.update(dt, st, this.cons, this.player.pos, visible, this.valley.river.flood);
     this.valley.update(dt, this.time, this.camera.position, this.player.pos);
@@ -337,7 +355,7 @@ export class Game {
       this.debugTimer -= dt;
       if (this.debugTimer <= 0) {
         this.debugTimer = 0.5;
-        this.ui.renderDebug(st, { fps: this.renderer.fps.toFixed(0), pos: `${this.player.pos.x.toFixed(1)},${this.player.pos.y.toFixed(1)},${this.player.pos.z.toFixed(1)}`, cons: [...this.cons].join(','), flood: this.valley.river.flood.toFixed(2) });
+        this.ui.renderDebug(st, { fps: this.renderer.fps.toFixed(0), pos: `${this.player.pos.x.toFixed(1)},${this.player.pos.y.toFixed(1)},${this.player.pos.z.toFixed(1)}`, cons: [...this.cons].join(','), flood: this.valley.river.flood.toFixed(2), combat: `hp ${this.combat.sim.hp.toFixed(0)} · ${this.combat.sim.alive.length} enemies · ${this.combat.recent.slice(-5).join(' · ')}` });
       }
     }
   }
@@ -345,10 +363,15 @@ export class Game {
   private afterSim(): void {
     const st = this.state;
     // surface new journal entries as toasts
+    // several witnesses of one deed arrive together: show the first, summarise the rest
+    let beliefBurst = 0;
     while (this.journalSeen < st.journal.length) {
       const j = st.journal[this.journalSeen++]!;
-      if (j.kind !== 'system') this.ui.toast(j.kind, j.text);
+      if (j.kind === 'system') continue;
+      if (j.kind === 'belief') { if (beliefBurst++ >= 1) continue; }
+      this.ui.toast(j.kind, j.text);
     }
+    if (beliefBurst > 1) this.ui.toast('belief', `…and ${beliefBurst - 1} more saw it and will tell it their own way. (Journal)`);
     if (st.form.title !== this.lastTitle) {
       this.lastTitle = st.form.title;
       this.body.applyForm(st.form);
@@ -382,7 +405,7 @@ export class Game {
     if (left <= 0) this.resolveFlood('ignored');
   }
 
-  private witnesses(at: THREE.Vector3, visibility: number, audible = false): WitnessInput[] {
+  witnesses(at: THREE.Vector3, visibility: number, audible = false): WitnessInput[] {
     const out: WitnessInput[] = [];
     for (const a of this.npcs.actors.values()) {
       if (!this.state.npcs[a.id]!.present) continue;
@@ -571,6 +594,7 @@ export class Game {
       this.burst(f, '#ff7a2a', 5);
       recordEvent(st, 'ember_rend', { x: f.x, y: f.y, z: f.z }, {}, this.witnesses(f, this.body.visibility));
     }
+    this.combat.ability(ab, P, this.player.yaw, st);
     this.body.triggerPulse();
   }
 

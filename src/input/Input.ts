@@ -13,15 +13,21 @@ export interface InputState {
   pause: boolean;
   debug: boolean;
   journal: boolean;
+  attackHeld: boolean;             // attack button held (tap → light, hold → charge heavy)
+  attackTap: boolean;              // a complete quick click/tap this frame (mouse), always a light attack
+  heavyTap: boolean;               // dedicated heavy (right click / L / RT)
+  lockOn: boolean;                 // toggle lock-on this frame
 }
 
-export type ButtonId = 'jump' | 'dodge' | 'interact' | 'ability';
+export type ButtonId = 'jump' | 'dodge' | 'interact' | 'ability' | 'attack' | 'lock';
 
 export class Input {
   state: InputState = this.blank();
   private keys = new Set<string>();
   private pressed = new Set<string>();
   private mouseDown = false;
+  private click: { button: number; x: number; y: number; t: number } | null = null;
+  private clicks = new Set<number>();
   private touchLook: { id: number; x: number; y: number } | null = null;
   private stick: { id: number; ox: number; oy: number; x: number; y: number } | null = null;
   private held = new Set<ButtonId>();
@@ -39,9 +45,19 @@ export class Input {
       if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.held.clear(); });
-    surface.addEventListener('mousedown', (e) => { if (e.button === 0 || e.button === 2) { this.mouseDown = true; this.touchMode = false; } });
-    window.addEventListener('mouseup', () => (this.mouseDown = false));
+    window.addEventListener('blur', () => { this.keys.clear(); this.held.clear(); this.mouseDown = false; });
+    surface.addEventListener('mousedown', (e) => {
+      if (e.button === 0 || e.button === 2) { this.mouseDown = true; this.touchMode = false; }
+      if (e.button === 1) e.preventDefault();
+      this.click = { button: e.button, x: e.clientX, y: e.clientY, t: performance.now() };
+    });
+    window.addEventListener('mouseup', (e) => {
+      this.mouseDown = false;
+      // a short, still click is a strike; a drag is camera look
+      const c = this.click;
+      if (c && c.button === e.button && performance.now() - c.t < 260 && Math.hypot(e.clientX - c.x, e.clientY - c.y) < 8) this.clicks.add(e.button);
+      this.click = null;
+    });
     window.addEventListener('mousemove', (e) => {
       if (!this.enabled) return;
       if (this.mouseDown || document.pointerLockElement === surface) {
@@ -57,7 +73,7 @@ export class Input {
   }
 
   private blank(): InputState {
-    return { moveX: 0, moveY: 0, lookX: 0, lookY: 0, sprint: false, jump: false, dodge: false, interact: false, interactHeld: false, ability: false, pause: false, debug: false, journal: false };
+    return { moveX: 0, moveY: 0, lookX: 0, lookY: 0, sprint: false, jump: false, dodge: false, interact: false, interactHeld: false, ability: false, pause: false, debug: false, journal: false, attackHeld: false, attackTap: false, heavyTap: false, lockOn: false };
   }
 
   /** Called by on-screen buttons. */
@@ -124,6 +140,11 @@ export class Input {
     const pause = p('Escape') || p('KeyP');
     const debug = p('Backquote') || p('F2');
     const journal = p('KeyJ') || p('Tab');
+    let attackHeld = k('KeyK') || this.held.has('attack');
+    // a press and release inside one frame would otherwise be lost between polls
+    let attackTap = this.clicks.has(0) || (this.tapped.has('attack') && !this.held.has('attack')) || (p('KeyK') && !k('KeyK'));
+    let heavyTap = p('KeyL') || this.clicks.has(2);
+    let lockOn = p('KeyT') || this.clicks.has(1) || this.tapped.has('lock');
 
     // gamepad (standard mapping)
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -137,6 +158,9 @@ export class Input {
       const edge = (i: number) => { const key = `gp${i}`; const now = b(i); const was = this.keys.has(key); if (now) this.keys.add(key); else this.keys.delete(key); return now && !was; };
       jump = jump || edge(0); dodge = dodge || edge(1); interact = interact || edge(2); ability = ability || edge(3);
       interactHeld = interactHeld || b(2);
+      attackHeld = attackHeld || b(5);          // RB: tap light, hold heavy
+      heavyTap = heavyTap || edge(7);           // RT: heavy
+      lockOn = lockOn || edge(11);              // R3: lock on
       sprint = sprint || b(10) || b(6);
     }
 
@@ -146,7 +170,9 @@ export class Input {
     s.sprint = sprint; s.jump = this.enabled && jump; s.dodge = this.enabled && dodge;
     s.interact = this.enabled && interact; s.interactHeld = this.enabled && interactHeld; s.ability = this.enabled && ability;
     s.pause = pause; s.debug = debug; s.journal = journal;
-    this.pressed.clear(); this.tapped.clear();
+    s.attackHeld = this.enabled && attackHeld; s.attackTap = this.enabled && attackTap;
+    s.heavyTap = this.enabled && heavyTap; s.lockOn = this.enabled && lockOn;
+    this.pressed.clear(); this.tapped.clear(); this.clicks.clear();
     return s;
   }
 

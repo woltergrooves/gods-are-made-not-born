@@ -232,6 +232,64 @@ export const EVENT_DEFS: Record<string, EventDef> = {
       },
     ],
   },
+  // ── Combat (Phase 4): fights in the dark are seen badly, and told worse ──
+  wraith_banished: {
+    type: 'wraith_banished', magnitude: 0.55, range: 50,
+    readings: [
+      {
+        id: 'protector', aspects: { guardian: 0.6, destruction: 0.2 }, domains: { spirits: 0.4 }, base: 0.5, clarityBias: 0.5,
+        testimony: '{name} saw the spirit tear a hollow wraith apart at the edge of the trees. Whatever it is, it hunts the things that hunt us.',
+        rumor: 'The new spirit kills the hollow ones that come out of the forest.',
+        summary: 'Believes you hunt the things that prey on the valley.',
+      },
+      {
+        id: 'devourer', aspects: { terror: 0.5, destruction: 0.4 }, domains: { shadow: 0.4 }, base: 0.25, clarityBias: -0.45,
+        testimony: '{name} only saw two shapes in the dark, and one of them swallowed the other.',
+        rumor: 'Something in the forest is eating the other spirits. It grows bigger every night.',
+        summary: 'Believes you feed on lesser spirits to grow.',
+      },
+      {
+        id: 'spirit_war', aspects: { wanderer: 0.4, vengeance: 0.3 }, domains: { spirits: 0.3 }, base: 0.2, clarityBias: 0.0,
+        testimony: '{name} thinks the spirits are fighting over the valley like dogs over a bone.',
+        rumor: 'The spirits are at war in the forest. Keep the children inside.',
+        summary: 'Believes you are one side of a war between spirits.',
+      },
+    ],
+  },
+  hound_slain: {
+    type: 'hound_slain', magnitude: 0.7, range: 50,
+    readings: [
+      {
+        id: 'bell_avenger', aspects: { guardian: 0.5, vengeance: 0.4 }, domains: { spirits: 0.3 }, base: 0.45, clarityBias: 0.45,
+        testimony: '{name} saw the spirit kill one of the silent hounds — the ones with dead bells at their throats.',
+        rumor: 'The spirit is hunting the Bell-Eater’s hounds.',
+        summary: 'Believes you are fighting whatever is eating the bells.',
+      },
+      {
+        id: 'beast', aspects: { destruction: 0.6, terror: 0.3 }, domains: { wildlife: 0.4 }, base: 0.3, clarityBias: -0.4,
+        testimony: '{name} heard snarling and bronze cracking in the dark. When it stopped, only the spirit was standing.',
+        rumor: 'The spirit tore a hound in half with its bare hands.',
+        summary: 'Believes you are a beast wearing a god’s shape.',
+      },
+    ],
+  },
+  spirit_fell: {
+    type: 'spirit_fell', magnitude: 0.4, range: 45,
+    readings: [
+      {
+        id: 'wounded_god', aspects: { wanderer: 0.4, mercy: 0.2 }, domains: { spirits: 0.2 }, base: 0.5, clarityBias: 0.3,
+        testimony: '{name} saw the spirit come apart under the claws of something from the forest. Can a god be wounded?',
+        rumor: 'The new spirit can bleed. Whatever it is, it is not all-powerful.',
+        summary: 'Believes you can be hurt — and can fail.',
+      },
+      {
+        id: 'trick', aspects: { trickster: 0.5 }, domains: { illusion: 0.4 }, base: 0.25, clarityBias: -0.3,
+        testimony: '{name} swears the spirit only pretended to fall, then reappeared somewhere else.',
+        rumor: 'You cannot kill the river spirit. It scatters like mist and gathers again.',
+        summary: 'Believes you cannot truly be killed.',
+      },
+    ],
+  },
 };
 
 /** Aspect -> visual part on the spirit body. */
