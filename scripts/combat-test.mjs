@@ -40,7 +40,7 @@ async function open(ctxOpts) {
 }
 
 const touchOnly = process.env.TOUCH_ONLY === '1';
-const { page } = touchOnly ? { page: null } : await open({ viewport: { width: 960, height: 540 } });
+const { page, ctx: desk } = touchOnly ? { page: null, ctx: null } : await open({ viewport: { width: 960, height: 540 } });
 const shot = (n) => page.screenshot({ path: `${out}/${n}.png`, timeout: 240000 });
 const g = (fn, arg) => page.evaluate(fn, arg);
 
@@ -136,6 +136,7 @@ ok(typeof loaded.flag === 'number' && loaded.edge === 0, 'after reload the clear
 }
 
 // touch layout
+await desk?.close(); // software rendering: don't run two games at once
 console.log('touch test: opening mobile context');
 const t = await open({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
 await t.page.evaluate(() => window.__game.player.teleport(30, 20, 0));
