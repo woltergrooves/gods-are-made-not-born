@@ -1,0 +1,17 @@
+{
+  "name": "gods-are-made-not-born",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Original Japanese-inspired dark-fantasy action RPG where gods are believed into existence.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build.mjs",
+    "test": "tsc -p tsconfig.test.json && node scripts/run-tests.mjs",
+    "dev": "node scripts/build.mjs --watch-note && npx --no-install http-server dist -p 5173 -c-1",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "outDir": "dist/js",
+    "rootDir": "src",
+    "sourceMap": true,
+    "paths": {
+      "three": ["./vendor-types/three/index.d.ts"],
+      "three/addons/*": ["./vendor-types/three/examples/jsm/*"]
+    },
+    "types": []
+  },
+  "include": ["src/**/*.ts"]
+}

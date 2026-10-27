@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": ".test-build",
+    "rootDir": ".",
+    "sourceMap": false,
+    "lib": ["ES2021"],
+    "types": []
+  },
+  "include": ["src/sim/**/*.ts", "src/save/**/*.ts", "tests/**/*.ts"]
+}
