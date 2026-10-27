@@ -67,7 +67,11 @@ ok(s1.outcome === outcome, `flood resolved as ${outcome}`);
 ok(s1.testimonies.length > 0, `witnesses interpreted the deed: ${s1.testimonies.join(', ')}`);
 await page.waitForTimeout(3000);
 await page.evaluate(() => { window.__game.state.playTime += 20; });
-await page.waitForTimeout(3500);
+// wait on game state, not wall time: software rendering can run at a few frames per second
+await page.waitForFunction((o) => {
+  const sp = window.__game.valley.village.setPieces;
+  return { rescue: sp.river_shrine.visible, weir: sp.bridge_broken.visible, howl: sp.warden_bells.visible, ignored: sp.mill_damaged.visible }[o];
+}, outcome, { timeout: 90000 }).catch(() => {});
 const visible = await page.evaluate(() => {
   const sp = window.__game.valley.village.setPieces;
   return { shrine: sp.river_shrine.visible, bridgeBroken: sp.bridge_broken.visible, bells: sp.warden_bells.visible, mill: sp.mill_damaged.visible, form: window.__game.state.form.title, parts: window.__game.state.form.parts };
