@@ -6,8 +6,8 @@ Status legend: **TESTED** (implemented + verified by automated or browser test) 
 - TESTED · TypeScript project, build (`npm run build`), unit tests (`npm test`, 14 passing)
 - TESTED · Separate project `gods-are-made-not-born`; Berlin Metro Life untouched
 - IMPLEMENTED · GitHub Actions CI workflow, `vercel.json`
-- BLOCKED · GitHub repository — needs an empty repo created by the owner (no repo-creation access from the build machine)
-- BLOCKED · Vercel preview — waits on the GitHub repo (project will be git-connected, preview branches only, no production publish)
+- TESTED · GitHub repository woltergrooves/gods-are-made-not-born, work on branch `develop`
+- TESTED · Vercel project `gods-are-made-not-born` (team Wolter), git-connected; Vercel build passes with TypeScript 5 and serves the game
 
 ## Phase 1 — Visual foundation
 - TESTED (headless Chromium) · Amahara Valley: height-field terrain, river with flood shader, waterfall, cedars/pines/maples/bamboo/ferns/grass, rocks, village of 7 houses, torii, stone & paper lanterns, arched bridge, mill with turning wheel, weir, abandoned hill shrine, storm sky, mountain layers, rain, lightning, mist, spirit motes
