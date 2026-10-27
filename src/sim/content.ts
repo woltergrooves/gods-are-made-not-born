@@ -102,6 +102,8 @@ export interface Reading {
   /** Only available to some witnesses. */
   onlyFor?: string[];
   testimony: string;   // first-hand, "{name}" substituted
+  /** Per-witness override when the witness is part of the scene (e.g. the rescued child). */
+  testimonyBy?: Record<string, string>;
   rumor: string;       // how it sounds when retold
   summary: string;     // the witness's new understanding of the spirit
 }
@@ -121,6 +123,7 @@ export const EVENT_DEFS: Record<string, EventDef> = {
       {
         id: 'saviour', aspects: { guardian: 0.8, mercy: 0.4 }, domains: { water: 0.5 }, base: 0.6, clarityBias: 0.6,
         testimony: '{name} saw a pale light lift Mio out of the flood and set her on the bank.',
+        testimonyBy: { mio: 'Mio felt hands made of light lift her out of the water. She is sure it was the river spirit from Grandmother\u2019s songs.' },
         rumor: 'A river spirit pulled the miller’s girl from the flood with its own hands.',
         summary: 'Believes you are a guardian of the river.',
       },

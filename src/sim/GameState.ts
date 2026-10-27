@@ -91,7 +91,8 @@ export function activeConsequences(state: GameState): Consequence[] {
 
   if (f['bridge_broken']) out.push({ id: 'bridge_broken', description: 'The red bridge was torn away by the drained flood.' });
   if (f['mill_damaged']) out.push({ id: 'mill_damaged', description: 'The mill wheel was smashed by the flood.' });
-  if (f['river_shrine_built'] || (f['flood_phase'] === 'resolved' && reverence > 0.3)) {
+  const shrineReady = state.playTime >= ((f['shrine_ready_at'] as number | undefined) ?? 0);
+  if (f['river_shrine_built'] || (f['flood_phase'] === 'resolved' && reverence > 0.3 && shrineReady)) {
     out.push({ id: 'river_shrine', description: 'Villagers have raised a small shrine to you by the river.' });
   }
   if (dread > 0.32 && dread > reverence) out.push({ id: 'village_shuttered', description: 'Doors are barred and lanterns burn blue against you.' });
@@ -117,7 +118,7 @@ export function applyFloodOutcome(state: GameState, outcome: FloodOutcome): void
   switch (outcome) {
     case 'rescue':
       f['mio_saved_by'] = 'spirit';
-      f['river_shrine_built'] = true;
+      f['shrine_pending'] = true;
       log(state, 'world', 'Mio is safe on the bank. By the time the rain thins, Hana and Mio are stacking river stones into a shrine.');
       break;
     case 'weir':
@@ -139,6 +140,8 @@ export function applyFloodOutcome(state: GameState, outcome: FloodOutcome): void
       break;
   }
   mio.x = 8; mio.z = 20; // on the bank now
+  // Devotion takes a little while to turn into stones and candles.
+  f['shrine_ready_at'] = state.playTime + 14;
   // The storyteller leaves over the pass a while after the flood — carrying whatever she heard.
   f['rei_departs_at'] = state.worldTime + 25;
 }
@@ -157,6 +160,11 @@ export function stepWorld(state: GameState, dtSeconds: number): { formChanged: b
   }
   if (f['rei_departed'] && state.npcs['rei']!.present && state.worldTime >= (f['rei_departs_at'] as number) + 20) {
     state.npcs['rei']!.present = false;
+  }
+  if (f['shrine_pending'] && state.playTime >= (f['shrine_ready_at'] as number)) {
+    f['shrine_pending'] = false;
+    f['river_shrine_built'] = true;
+    log(state, 'world', 'Hana and Mio have finished a small shrine of river stones on the bank. Candles are lit for you.');
   }
   tickRumors(state, dtMin);
   // Fear and warmth settle slowly over time.

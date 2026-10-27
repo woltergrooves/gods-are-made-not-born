@@ -1,0 +1,1 @@
+{ "name": "Gods Are Made, Not Born", "short_name": "Gods Are Made", "display": "fullscreen", "orientation": "landscape", "background_color": "#0b0f16", "theme_color": "#0b0f16", "start_url": "./", "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }] }

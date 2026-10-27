@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0b0f16" />
+  <meta name="description" content="Gods Are Made, Not Born — a dark-fantasy action RPG where you are believed into existence." />
+  <title>Gods Are Made, Not Born</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <canvas id="game" aria-label="Game view"></canvas>
+
+  <div id="loading" class="screen">
+    <div class="ink-title">
+      <div class="kanji" aria-hidden="true">神</div>
+      <h1>Gods Are Made,<br/>Not Born</h1>
+    </div>
+    <div class="load-bar"><div id="load-fill"></div></div>
+    <div id="load-label">Gathering belief…</div>
+  </div>
+
+  <div id="title" class="screen hidden">
+    <div class="ink-title">
+      <div class="kanji" aria-hidden="true">神</div>
+      <h1>Gods Are Made,<br/>Not Born</h1>
+      <p class="tag">A god is not born. A god is believed into existence.</p>
+    </div>
+    <nav class="menu" id="title-menu">
+      <button data-act="continue" id="btn-continue" class="hidden">Continue</button>
+      <button data-act="new">New Game</button>
+      <button data-act="load">Load</button>
+      <button data-act="settings">Settings</button>
+    </nav>
+    <div class="credits">Original procedural art &amp; sound · Build <span id="build-id"></span></div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-tl">
+      <button class="icon-btn" id="btn-pause" aria-label="Pause">❚❚</button>
+      <button class="icon-btn" id="btn-journal" aria-label="Journal">卷</button>
+      <div class="form-title"><span id="form-title">Nameless</span><small id="form-domains"></small></div>
+    </div>
+    <div id="toasts"></div>
+    <div id="objective" class="hidden"></div>
+    <div id="hint" class="hidden"></div>
+    <div id="prompt" class="hidden"><svg viewBox="0 0 40 40" class="ring"><circle cx="20" cy="20" r="17"/><circle id="prompt-ring" cx="20" cy="20" r="17"/></svg><span id="prompt-text"></span></div>
+    <div id="stamina"><div id="stamina-fill"></div></div>
+    <div id="stick" class="hidden"><div id="stick-knob"></div></div>
+    <div id="buttons">
+      <button class="act" id="b-ability" data-btn="ability"><span>Power</span></button>
+      <button class="act" id="b-dodge" data-btn="dodge"><span>Dodge</span></button>
+      <button class="act" id="b-jump" data-btn="jump"><span>Jump</span></button>
+      <button class="act big" id="b-interact" data-btn="interact"><span id="b-interact-label">Act</span></button>
+    </div>
+    <div id="barks"></div>
+    <div id="fps" class="hidden"></div>
+  </div>
+
+  <div id="dialogue" class="hidden"><div class="speaker" id="dlg-speaker"></div><div class="text" id="dlg-text"></div><div class="next">▼</div></div>
+
+  <div id="pause" class="screen dim hidden">
+    <h2>Paused</h2>
+    <nav class="menu">
+      <button data-act="resume">Resume</button>
+      <button data-act="save">Save</button>
+      <button data-act="load">Load</button>
+      <button data-act="journal">Journal</button>
+      <button data-act="settings">Settings</button>
+      <button data-act="quit">Quit to Title</button>
+    </nav>
+  </div>
+
+  <div id="slots" class="screen dim hidden">
+    <h2 id="slots-title">Save</h2>
+    <div id="slot-list"></div>
+    <nav class="menu"><button data-act="back">Back</button></nav>
+  </div>
+
+  <div id="journal" class="screen dim hidden">
+    <div class="journal-wrap">
+      <header><h2>Journal</h2><button class="icon-btn" data-act="close" aria-label="Close">✕</button></header>
+      <section class="identity" id="j-identity"></section>
+      <section><h3>What they believe</h3><div id="j-beliefs"></div></section>
+      <section><h3>What has happened</h3><ol id="j-log"></ol></section>
+    </div>
+  </div>
+
+  <div id="settings" class="screen dim hidden">
+    <h2>Settings</h2>
+    <div class="settings-grid">
+      <label>Graphics<select id="s-quality"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+      <label>Camera sensitivity<input type="range" id="s-sens" min="0.4" max="2" step="0.1" /></label>
+      <label class="row"><input type="checkbox" id="s-invert" /> Invert camera Y</label>
+      <label>Volume<input type="range" id="s-vol" min="0" max="1" step="0.05" /></label>
+      <label class="row"><input type="checkbox" id="s-debug" /> Developer panel</label>
+      <label class="row"><input type="checkbox" id="s-fps" /> Show FPS</label>
+      <p class="note" id="s-note">Graphics changes apply the next time the valley loads.</p>
+    </div>
+    <nav class="menu"><button data-act="back">Back</button></nav>
+  </div>
+
+  <div id="debug" class="hidden"></div>
+  <div id="fade" class="hidden"></div>
+  <div id="rotate" class="screen"><div>⟲</div><p>Turn your device sideways</p></div>
+  <div id="fatal" class="screen hidden"><h2>Something went wrong</h2><p id="fatal-msg"></p><button onclick="location.reload()">Reload</button></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

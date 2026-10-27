@@ -130,7 +130,7 @@ export function recordEvent(
     }
 
     const name = npcDef?.name ?? w.id;
-    const t: Testimony = { eventId: id, witness: w.id, readingId: reading.id, clarity, text: fill(reading.testimony, name) };
+    const t: Testimony = { eventId: id, witness: w.id, readingId: reading.id, clarity, text: fill(reading.testimonyBy?.[w.id] ?? reading.testimony, name) };
     bs.testimonies.push(t);
     out.push(t);
     if (times > 0) log(state, 'belief', `${name} has seen this before. It moves them less each time.`);
